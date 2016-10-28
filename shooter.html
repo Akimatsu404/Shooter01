@@ -79,10 +79,81 @@ var toExecutableOnce = function(f){
 };
 
 
+function Item(canvas){
+    var x, y;
+    var vx, vy;
+    var itemType;
+    var r = 10;
+    var isUse = true;
+
+    this.spawn = function(type, x1, y1){
+        itemType = type;
+        x = x1;
+        y = y1;
+        vx = 0;
+        vy = 1;
+    }
+    this.draw = function(ctx, fillStyle) {
+        if(!isUse){return;}
+        ctx.beginPath();
+        ctx.fillStyle = 'green';
+        ctx.arc(x, y, r, 0, Math.PI*2, false);
+        ctx.fill();
+        ctx.closePath();
+
+        ctx.font = '20pt Calibri';
+        ctx.fillStyle = 'white';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'center';
+        var s;
+        if(itemType == 1)
+        {
+            s = "レ"
+        }
+        else if(itemType == 0)
+        {
+            s = "友"
+        }
+        
+        ctx.fillText(s, x, y + 7);
+
+    };
+
+    this.hit = function(tx, ty, tr) {
+        if(!isUse){return false;}
+        var dx = tx - x;
+        var dy = ty - y;
+        if (dx*dx + dy*dy < (r + tr)*(r + tr)) {
+            return true;
+        }
+        return false;
+    };
+
+    this.update = function(){
+        if(!isUse){return;}
+        y += vy;
+    }
+
+    this.getPos = function(){
+        return {x:x, y:y};
+    }
+    this.getType = function(){
+        return itemType;
+    }
+    this.setIsUse = function(value){
+        isUse = value;
+    }
+
+}
+
 function Enemy(canvas) {
 
     var x, y;
     var vx, vy;
+    //プレイヤーの位置座標
+    var px, py;
+    //行動タイプ 0:通常、1:追尾
+    var actionType;
 
     var life = 3;
     var dying = false;
@@ -98,6 +169,9 @@ function Enemy(canvas) {
         y = -er;
         vx = 0;
         vy = 100*Math.random() + 50;
+
+        var a = Math.floor(Math.random() * (10 + 1 - 0)) + 0;
+        actionType = a % 3;
     };
     spawn();
 
@@ -134,12 +208,39 @@ function Enemy(canvas) {
 
     this.fire = function() {
         var n = lifeProp[life].numB;
-        for (var i = 0; i < n; i++) {
-            var th = i*2*Math.PI/n;
-            var vx = 300*Math.cos(th)*Math.cos(-th);
-            var vy = 300*Math.sin(th)*Math.sin(-th);
-            var bullet = { x: x, y: y, vx: vx*Math.sin(th), vy: vy*Math.cos(th), life: 4 };
-            bullets.push(bullet);
+
+        if(actionType == 0){
+            for (var i = 0; i < n; i++) {
+                var th = i*2*Math.PI/n;
+                var vx = 300*Math.cos(th)*Math.cos(-th);
+                var vy = 300*Math.sin(th)*Math.sin(-th);
+                var bullet = { x: x, y: y, vx: vx*Math.sin(th), vy: vy*Math.cos(th), life: 4 };
+                bullets.push(bullet);
+            }
+        }
+        else if(actionType == 1)
+        {
+            for(var i = 0; i < n + 3; i++)
+            {
+                var th = i*2*Math.PI/n;
+                var vx = (x-px) + ((Math.random() * 6) * 5);
+                var vy = (y-py) + ((Math.random() * 6) * 5);//* Math.sin(th);
+                var bullet = {x:x, y:y, vx:vx, vy:vy, life: 4};
+                bullets.push(bullet);
+            }
+
+        }
+        else if(actionType == 2)
+        {
+            for(var i = 0; i < n + 3; i++)
+            {
+                var th = i*2*Math.PI/n;
+                var vx = (x-px) * Math.cos(th);
+                var vy = (y-py) * Math.sin(th);
+                var bullet = {x:x, y:y, vx:vx, vy:vy, life: 4};
+                bullets.push(bullet);
+            }
+
         }
         playSE(enemyShotAudio);
     };
@@ -188,11 +289,13 @@ function Enemy(canvas) {
         }
 
         var tick = Date.now();
+
         var dt = tick - lastTick;
-        if (0 < life) {
+        //通常行動の時
+        if (0 < life && actionType == 0) {
             x += dt*vx/1000;
             x += lifeProp[life].daze*Math.cos(th);
-            th += 1.5*dt*2*Math.PI/1000;
+           th += 1.5*dt*2*Math.PI/1000;
             y += dt*vy/1000;
             if (x < -er
             || canvas.width + er < x
@@ -200,6 +303,28 @@ function Enemy(canvas) {
                 spawn();
             }
         }
+        //追尾行動の時
+        else if(0 < life && actionType == 1)
+        {
+            //th += 1.5*dt*2*Math.PI/1000;
+            th = dt*2*Math.PI/1000*((Math.random() * -1.0)+10.0)
+            x += dt*(px-x)/1000 * th;
+            y += dt*(py-y)/1000 * th;
+        }
+        else if(0 < life && actionType == 2)
+        {
+            //th += 1.5*dt*2*Math.PI/1000;
+            th = dt*2*Math.PI/1000*((Math.random() * -1.0)+10.0)
+//            x += dt;
+            y += dt/100;
+            if (x < -er
+            || canvas.width + er < x
+            || canvas.height + er < y) {
+                spawn();
+            }
+        }
+
+
         bullets.forEach(function(bullet) {
             
             if(bullet.life < 3)
@@ -236,13 +361,19 @@ function Enemy(canvas) {
         return 1 <= life;
     };
 
-    this.getPos = function()
-    {
+    this.getPos = function(){
         return {x:x, y:y};
     }
-    this.setLife = function(life1)
-    {
+    this.setLife = function(life1){
         life = life1;
+    }
+    this.getLife = function()
+    {
+        return life;
+    }
+    this.setPlayerPos = function(x1, y1){
+        px = x1;
+        py = y1;
     }
 
 }
@@ -306,7 +437,6 @@ function TimerBom(canvas){
         if (dying && !explode.update()) {
             //dying = false;
 
-                        console.info("回れ");
         }
         if(!dying && timeOver)
         {
@@ -376,6 +506,10 @@ function TimerBom(canvas){
     {
         return id;
     }
+    this.getLife = function()
+    {
+        return life;
+    }
 
 
 }
@@ -437,13 +571,12 @@ function FriendlyUnit(canvas)
 
     this.getPos = function()
     {
-        console.log(x);
         return {x:x, y:y};
     }
 
 };
 
-
+var items;
 var enemies;
 var bomes;
 var friendlyUnits;
@@ -455,6 +588,7 @@ function init(canvas, n) {
     }
     bomes = [];
     friendlyUnits = [];
+    items = [];
 }
 
 //スタートメゾット
@@ -476,7 +610,8 @@ window.onload = function() {
 
     var count;
     var mylife = 5;
-    var myX, myY;
+    var myX, myY, myType;
+    //myType 0が通常 1がレーザー
     var bullets, lastShoot;
     var explode = new Explode();
     var numEnemies;
@@ -535,6 +670,7 @@ window.onload = function() {
         var drawStatus = false;
         var drawBomes = false;
         var drawFriendlyUnits = false;
+        var drawItems = false;
 
         switch (status) {
         case Status.title:
@@ -544,16 +680,9 @@ window.onload = function() {
         case Status.toStart:
             myX = canvas.width/2;
             myY = 4*canvas.height/5;
+            myType = 0;
             bullets = [];
             init(canvas, numEnemies);
-
-            //友軍機の生成
-            var f = new FriendlyUnit(canvas);
-            f.spawn(0, myX, myY, 40, 30);
-            friendlyUnits.push(f);
-            f = new FriendlyUnit(canvas);
-            f.spawn(1, myX, myY, -40, 30);
-            friendlyUnits.push(f);
 
             drawFriendlyUnits = true;
 
@@ -581,6 +710,7 @@ window.onload = function() {
             drawPlayer = true;
             drawStatus = true;
             drawBomes = true;
+            drawItems = true;
             drawFriendlyUnits = true;
             break;
         case Status.gameClear:
@@ -590,6 +720,7 @@ window.onload = function() {
             drawStatus = true;
             drawBomes = true;
             drawFriendlyUnits = true;
+            drawItems = true;
             break;
         case Status.dying:
             explode.draw(ctx, myX, myY);
@@ -601,6 +732,7 @@ window.onload = function() {
             drawStatus = true;
             drawBomes = true;
             drawFriendlyUnits = true;
+            drawItems = true;
             break;
         case Status.gameOver:
             msg = 'GAME OVER';
@@ -608,6 +740,7 @@ window.onload = function() {
             drawStatus = true;
             drawBomes = true;
             drawFriendlyUnits = true;
+            drawItems = true;
             gameRound = 1;
             mylife = 5;
             break;
@@ -621,7 +754,8 @@ window.onload = function() {
             if (keys[38 /*Up   */]) { myY -= 2; }
             if (keys[40 /*Down */]) { myY += 2; }
             if (keys[90 /* z */]) {
-                if (lastShoot == undefined || 200 < tick - lastShoot) {
+                if(myType == 1)
+                {
                     var bulletNotInUse = bullets.filter(function(bullet) {
                         return !bullet.inUse;
                     });
@@ -643,7 +777,38 @@ window.onload = function() {
                         var fBullet = {};
                         bullets.push(fBullet);
                         var fv = friend.getPos();
-                        console.log(fv);
+                        fBullet.x = fv.x;
+                        fBullet.y = fv.y;
+                        fBullet.v = -2;
+                        fBullet.inUse = true;
+                        playSE(shotAudio);
+                    });
+
+                }
+
+                else if (lastShoot == undefined || 200 < tick - lastShoot) {
+                    var bulletNotInUse = bullets.filter(function(bullet) {
+                        return !bullet.inUse;
+                    });
+
+                    var bullet;
+                    if (0 < bulletNotInUse.length) {
+                        bullet = bulletNotInUse[0];
+                    } else {
+                        bullet = {};
+                        bullets.push(bullet);
+                    }
+                    bullet.x = myX;
+                    bullet.y = myY;
+                    bullet.v = -2;
+                    bullet.inUse = true;
+                    playSE(shotAudio);
+                    lastShoot = tick;
+
+                    drawFriendlyUnits && friendlyUnits.forEach(function(friend){
+                        var fBullet = {};
+                        bullets.push(fBullet);
+                        var fv = friend.getPos();
                         fBullet.x = fv.x;
                         fBullet.y = fv.y;
                         fBullet.v = -2;
@@ -698,6 +863,7 @@ window.onload = function() {
         //console.log(mylife + "x:" + myX + "y:" + myY);
                     
         drawEnemies && enemies.forEach(function(enemy) {
+            enemy.setPlayerPos(myX, myY);
             enemy.update();
             if (enemy.isAlive()) {
                 enemy.fireAtRandom();
@@ -737,6 +903,34 @@ window.onload = function() {
         drawFriendlyUnits && friendlyUnits.forEach(function(friend){
             friend.update(myX, myY);
             friend.draw(ctx);
+        });
+
+        drawItems && items.forEach(function(item){
+            item.update();
+            if(item.hit(myX, myY, myR))
+            {
+                //アイテムのタイプを取得し、自機に反映。
+                var itype = item.getType();
+                if(itype == 1)
+                {
+                    myType = 1;
+                }
+                else if(itype == 0)
+                {
+                    //友軍機の生成
+                    if(friendlyUnits.length <= 0){
+                        var f = new FriendlyUnit(canvas);
+                        f.spawn(0, myX, myY, 40, 30);
+                        friendlyUnits.push(f);
+                        f = new FriendlyUnit(canvas);
+                        f.spawn(1, myX, myY, -40, 30);
+                        friendlyUnits.push(f);
+                    }
+                }
+
+                item.setIsUse(false);
+            }
+            item.draw(ctx);
         });
 
         if (drawPlayer) {
@@ -782,6 +976,17 @@ window.onload = function() {
                 if (enemy.isAlive() && enemy.hit(x, y, 2)) {
                     enemy.damage();
                     bullet.inUse = false;
+                    console.log(enemy.getLife());
+                    if(enemy.getLife() <= 0)
+                    {
+                        var item = new Item(canvas);
+                        var pos = enemy.getPos();
+                        var a = Math.floor(Math.random() * 2) + 0;
+                        a = a % 2;
+                        item.spawn(a, pos.x, pos.y);
+                        items.push(item);
+                        console.log("len"+items.length);
+                    }
                 }
             });
             drawBomes && bomes.forEach(function(bom){
@@ -878,7 +1083,7 @@ window.onload = function() {
             ctx.fillText(s, 0 + 100, 25);
 
             if(stage == Stage.stage1)
-                s = "WAVE 1 11";
+                s = "WAVE 1";
             if(stage == Stage.stage2)
                 s = "WAVE 2";
             if(stage == Stage.stage3)
@@ -897,6 +1102,11 @@ window.onload = function() {
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(msg, canvas.width/2, canvas.height/2);
+            if(msg == 'GAME CLEAR!!!')
+            {
+                msg = "Press the Select to the Next Round"
+                ctx.fillText(msg, canvas.width/2, canvas.height/2 + 50)
+            }
         }
 
         ctx.restore();
