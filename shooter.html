@@ -36,6 +36,7 @@ canvas {
 
 <script src="explode.js"></script>
 
+
 <script>
 
 "use strict";
@@ -55,43 +56,28 @@ function playSE(audio) {
 
 var bgReady = false;
 var bgImg = new Image();
+var playerImg = new Image();
 bgImg.onload = function() {
     bgReady = true;
 };
 // https://www.nasa.gov/mission_pages/hubble/multimedia/index.html
 bgImg.src = 'hubble_friday_05062016.jpg';
+playerImg.src = 'player_img1.png';
 
 bgmAudio.loop = 'true';
 bgmAudio.play();
 
-function Block(canvas)
-{
-    var x, y;
+var toExecutableOnce = function(f){
+    var called = false, result = undefined;
+    return function(){
+        if(!called){
+            result = f.apply(this, arguments);
+            called = true;
+        }   
+        return result;
+    };  
+};
 
-    var r = 20;//radius
-
-    var dying = false;
-
-    function spawn()
-    {
-        x = canvas.width*Math.random();
-        y = 100;
-//        r = _r;
-    }
-    spawn();
-
-    this.draw = function(ctx) {
-
-
-        ctx.beginPath();
-        ctx.fillStyle = 'red';
-        ctx.arc(x, y, r, 0, Math.PI*2, false);
-        ctx.fill();
-        
-
-    };
-
-}
 
 function Enemy(canvas) {
 
@@ -120,15 +106,20 @@ function Enemy(canvas) {
     lifeProp[2] = { color: 'yellow', fireP: 0.005, numB: 10, daze: 2 };
     lifeProp[1] = { color: 'red',    fireP: 0.01,  numB: 20, daze: 5 };
 
-    this.draw = function(ctx) {
+    this.draw = function(ctx, fillStyle) {
 
         if (dying) {
             explode.draw(ctx, x, y);
         } else if (1 <= life) {
-            ctx.beginPath();
+
+             ctx.beginPath();
             ctx.fillStyle = lifeProp[life].color;
             ctx.arc(x, y, er, 0, Math.PI*2, false);
             ctx.fill();
+             ctx.closePath();
+
+
+
         }
 
         bullets.forEach(function(bullet) {
@@ -145,9 +136,9 @@ function Enemy(canvas) {
         var n = lifeProp[life].numB;
         for (var i = 0; i < n; i++) {
             var th = i*2*Math.PI/n;
-            var vx = 300*Math.cos(th);
-            var vy = 300*Math.sin(th);
-            var bullet = { x: x, y: y, vx: vx, vy: vy, life: 1 };
+            var vx = 300*Math.cos(th)*Math.cos(-th);
+            var vy = 300*Math.sin(th)*Math.sin(-th);
+            var bullet = { x: x, y: y, vx: vx*Math.sin(th), vy: vy*Math.cos(th), life: 4 };
             bullets.push(bullet);
         }
         playSE(enemyShotAudio);
@@ -189,6 +180,7 @@ function Enemy(canvas) {
 
         if (dying && !explode.update()) {
             dying = false;
+
         }
 
         if (lastTick == undefined) {
@@ -209,6 +201,12 @@ function Enemy(canvas) {
             }
         }
         bullets.forEach(function(bullet) {
+            
+            if(bullet.life < 3)
+            {
+                //bullet.x += dt*bullet.vx/1000;
+                bullet.y += 5;  
+            }
             bullet.x += dt*bullet.vx/1000;
             bullet.y += dt*bullet.vy/1000;
             bullet.life -= dt/1000/1.0;
@@ -237,23 +235,226 @@ function Enemy(canvas) {
     this.isAlive = function() {
         return 1 <= life;
     };
+
+    this.getPos = function()
+    {
+        return {x:x, y:y};
+    }
+    this.setLife = function(life1)
+    {
+        life = life1;
+    }
+
 }
 
+function TimerBom(canvas){
+    var id;
+    var x, y;
+    var vx, vy;
+    var life = 3;
+    var timerCount;
+    var dying = false, timeOver = false;
+
+    var explode = new Explode();
+    var er = 15; // enemy radius
+ 
+
+    this.spawn = function(id1){
+        id = id1;
+        x = canvas.width*Math.random();
+        y = -(er + 50 * Math.random());
+        vx = 0;
+        vy = 25;//100*Math.random() + 50;
+        timerCount = Math.floor(Math.random() * 7) + 8;//8~12
+    };
+
+    this.draw = function(ctx){
+        if (dying) {
+            explode.draw(ctx, x, y);
+        } else if (1 <= life) {
+            ctx.beginPath();
+            ctx.fillStyle = 'Red';
+            ctx.arc(x, y, er, 0, Math.PI*2, false);
+            ctx.fill();
+
+            ctx.font = '20pt Calibri';
+            ctx.fillStyle = 'white';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'center';
+            var s = "" + parseInt(timerCount);
+            ctx.fillText(s, x, y + 7);
+
+        }
+
+    }
+
+    this.hit = function(tx, ty, r) {
+        var dx = tx - x;
+        var dy = ty - y;
+        if (dx*dx + dy*dy < (er + r)*(er + r)) {
+            return true;
+        }
+        return false;
+    };
+
+    var lastTick;
+    var th = Math.PI*Math.random();
+
+    this.update = function() {
+
+
+        if (dying && !explode.update()) {
+            //dying = false;
+
+                        console.info("回れ");
+        }
+        if(!dying && timeOver)
+        {
+            this.die();
+        }
+
+        if (lastTick == undefined) {
+            lastTick = Date.now();
+        }
+
+
+
+        var tick = Date.now();
+        var dt = tick - lastTick;
+        if (0 < life) {
+            //x += dt*vx/1000;
+            //x += Math.cos(th);
+            th += 1.5*dt*2*Math.PI/1000;
+            y += dt*vy/1000;
+            if (x < -er
+            || canvas.width + er < x
+            || canvas.height + er < y) {
+                //spawn(id);
+            }
+        }
+        timerCount -= dt / (60.0 * 20);
+        if(timerCount < 0){timeOver = true;};
+        //console.info(timerCount);
+
+        lastTick = tick;
+    };
+
+    this.die = function() {
+        dying = true;
+        playSE(explosionAudio);
+        explode.reset();
+    };
+
+    this.damage = function() {
+        if (--life <= 0) {
+            this.die();
+        } else {
+            //何かするかも
+        }
+    };
+
+    this.isAlive = function() {
+        return 1 <= life;
+    };
+    this.isTimeOver = function()
+    {
+        return timeOver;
+    }
+    this.isDeadAndExploded = function(){
+        if(dying && !explode.update())
+        {
+            return true;
+        }
+
+        return false;
+    }
+    this.getPos = function()
+    {
+        return {x:x, y:y};
+    }
+    this.getId = function()
+    {
+        return id;
+    }
+
+
+}
+
+   //友軍機(随伴機？)
+function FriendlyUnit(canvas)
+{
+    var id;
+    var x, y;
+    var vx, vy;
+    //プレイヤーの位置座標
+    var px, py;
+    //プレイヤーからの距離
+    var xl, yl;
+    var life = 1;
+    var dying = false;
+
+    var explode = new Explode();
+    var r = 3;
+
+    //プレイヤーの座標を元に位置を生成。
+    //プレイヤーを中心にV字になるようにする。
+    //xl,ylはプレイヤーからの距離
+    this.spawn = function(id1, x1, y1, xl1, yl1){
+        id = id1;
+        px = x1;
+        py = y1;
+        xl = xl1;
+        yl = yl1;
+        x = px + xl;
+        y = py + yl;
+        vx = 0;
+        vy = 0;
+    }
+
+    this.draw = function(ctx){
+
+        if (dying) {
+            explode.draw(ctx, x, y);
+        } else if (1 <= life) {
+
+            var cx = playerImg.width / 2;
+            var cy = playerImg.height / 2;
+            var sx = (playerImg.width - canvas.width)/2;
+            var sy = (playerImg.height - canvas.height)/2;
+
+            ctx.drawImage(playerImg, x - cx, y - cy);
+        }
+
+    }
+    //プレイヤーの座標を参照し、自身の座標を更新
+    this.update = function(x1, y1)
+    {
+        px = x1;
+        py = y1;
+        x = px + xl;
+        y = py + yl;
+    }
+
+    this.getPos = function()
+    {
+        console.log(x);
+        return {x:x, y:y};
+    }
+
+};
+
+
 var enemies;
-var blocks;
+var bomes;
+var friendlyUnits;
 
 function init(canvas, n) {
     enemies = [];
     for (var i = 0; i < n; i++) {
         enemies.push(new Enemy(canvas));
     }
-    
-    blocks = [];
-    for(var i = 0; i < n; i++)
-    {
-        blocks.push(new Block(canvas));
-    }
-
+    bomes = [];
+    friendlyUnits = [];
 }
 
 //スタートメゾット
@@ -269,7 +470,12 @@ window.onload = function() {
                    inGame:3, gameClear:4, dying:5, gameOver:6 };
     var status = Status.title;
 
+    var Stage = {stage0:0, stage1:1, stage2:2, stage3:3};
+    var stage = Stage.stage0;
+    var gameRound = 1;
+
     var count;
+    var mylife = 5;
     var myX, myY;
     var bullets, lastShoot;
     var explode = new Explode();
@@ -285,6 +491,8 @@ window.onload = function() {
     };
 
     var startTick = Date.now();
+
+   
 
     (function loop() {
 
@@ -309,7 +517,7 @@ window.onload = function() {
         if (keys[32 /*space*/] == 1) {
             if (status == Status.title) {
                 status = Status.toStart;
-                muteSE = false;
+                muteSE = false;                
             }
             if (status == Status.gameOver) {
                 status = Status.title;
@@ -325,23 +533,37 @@ window.onload = function() {
         var drawEnemies = false;
         var drawPlayer = false;
         var drawStatus = false;
+        var drawBomes = false;
+        var drawFriendlyUnits = false;
 
         switch (status) {
         case Status.title:
-            msg = 'Press space to start';
-            numEnemies = 3;
+            msg = 'Press space to start!!!';
+            numEnemies = 2 * gameRound;
             break;
         case Status.toStart:
             myX = canvas.width/2;
             myY = 4*canvas.height/5;
             bullets = [];
             init(canvas, numEnemies);
+
+            //友軍機の生成
+            var f = new FriendlyUnit(canvas);
+            f.spawn(0, myX, myY, 40, 30);
+            friendlyUnits.push(f);
+            f = new FriendlyUnit(canvas);
+            f.spawn(1, myX, myY, -40, 30);
+            friendlyUnits.push(f);
+
+            drawFriendlyUnits = true;
+
             status = Status.countDown;
             count = 3;
             (function() {
                 setTimeout(function loop() {
                     if (--count < 0) {
                         status = Status.inGame;
+                        stage = Stage.stage1;
                     } else {
                         setTimeout(loop, 1000);
                     }
@@ -352,17 +574,22 @@ window.onload = function() {
             msg = "" + count;
             drawPlayer = true;
             drawStatus = true;
+            drawFriendlyUnits = true;
             break;
         case Status.inGame:
             drawEnemies = true;
             drawPlayer = true;
             drawStatus = true;
+            drawBomes = true;
+            drawFriendlyUnits = true;
             break;
         case Status.gameClear:
             msg = 'GAME CLEAR!!!';
             drawEnemies = true;
             drawPlayer = true;
             drawStatus = true;
+            drawBomes = true;
+            drawFriendlyUnits = true;
             break;
         case Status.dying:
             explode.draw(ctx, myX, myY);
@@ -372,11 +599,17 @@ window.onload = function() {
             }
             drawEnemies = true;
             drawStatus = true;
+            drawBomes = true;
+            drawFriendlyUnits = true;
             break;
         case Status.gameOver:
             msg = 'GAME OVER';
             drawEnemies = true;
             drawStatus = true;
+            drawBomes = true;
+            drawFriendlyUnits = true;
+            gameRound = 1;
+            mylife = 5;
             break;
         default:
             console.log('unknown status: ' + status);
@@ -405,12 +638,65 @@ window.onload = function() {
                     bullet.inUse = true;
                     playSE(shotAudio);
                     lastShoot = tick;
+
+                    drawFriendlyUnits && friendlyUnits.forEach(function(friend){
+                        var fBullet = {};
+                        bullets.push(fBullet);
+                        var fv = friend.getPos();
+                        console.log(fv);
+                        fBullet.x = fv.x;
+                        fBullet.y = fv.y;
+                        fBullet.v = -2;
+                        fBullet.inUse = true;
+                        playSE(shotAudio);
+                    });
+
                 }
             }
         }
 
         var myR = 3;
+        drawBomes && bomes.forEach(function(bom){
+            bom.update();
+            if(bom.isDeadAndExploded()){
+                //カウントダウン
+                //if(bom.isAlive()){}
+                bomes.splice(bom.id, 1);
+                if(bom.isTimeOver())
+                {
+                    mylife -= 2;
+                    playSE(explosionAudio);
+                    //status = Status.gameOver;
+                }
+            }
+            bom.draw(ctx);
+            if(status != Status.inGame) return;
+            if(bom.isAlive() && bom.hit(myX, myY, myR)
+            ){
+                if(mylife <= 0)
+                {
+                    explode.reset();
+                    status = Status.dying;
+                    playSE(deadAudio);
+                }
+                else if(bom.hit(myX, myY, myR))
+                {
+                    --mylife;
+                    var bob = bom.getPos();
 
+                    var vx = myX - bob.x,
+                        vy = myY - bob.y;
+                    var t =(vx*vx + vy*vy);
+                    var length = Math.sqrt(t);
+                    myX += (vx / length)*10;
+                    myY += (vy / length)*10;
+                    playSE(explosionAudio);
+                }
+                
+            }
+        });
+        //console.log(mylife + "x:" + myX + "y:" + myY);
+                    
         drawEnemies && enemies.forEach(function(enemy) {
             enemy.update();
             if (enemy.isAlive()) {
@@ -420,13 +706,41 @@ window.onload = function() {
             if (status != Status.inGame) return;
             if ((enemy.isAlive() && enemy.hit(myX, myY, myR))
             || enemy.bulletsHit(myX, myY, myR)) {
-                explode.reset();
-                status = Status.dying;
-                playSE(deadAudio);
+               if(mylife <= 0)
+                {
+                    explode.reset();
+                    status = Status.dying;
+                    playSE(deadAudio);
+                }
+                else if(enemy.hit(myX, myY, myR))
+                {
+                    --mylife;
+                    var eob = enemy.getPos();
+
+                    var vx = myX - eob.x,
+                        vy = myY - eob.y;
+                    var t =(vx*vx + vy*vy);
+                    var length = Math.sqrt(t);
+
+                    myX += (vx / length)*10;
+                    myY += (vy / length)*10;
+                    playSE(explosionAudio);
+                }
+                else
+                {
+                    --mylife;
+                    playSE(explosionAudio);
+                }
             }
         });
 
+        drawFriendlyUnits && friendlyUnits.forEach(function(friend){
+            friend.update(myX, myY);
+            friend.draw(ctx);
+        });
+
         if (drawPlayer) {
+            /*
             ctx.beginPath();
             ctx.fillStyle = 'green';
             ctx.moveTo(myX, myY - 10);
@@ -437,6 +751,22 @@ window.onload = function() {
             ctx.fillStyle = 'skyBlue';
             ctx.arc(myX, myY, myR, 0, Math.PI*2, false);
             ctx.fill();
+*/
+
+
+            var cx = playerImg.width / 2;
+            var cy = playerImg.height / 2;
+            var sx = (playerImg.width - canvas.width)/2;
+            var sy = (playerImg.height - canvas.height)/2;
+            var s = 0.5;
+//            var dy = (tick - startTick)/100 % bgImg.height;
+
+            ctx.drawImage(playerImg, myX - cx, myY - cy);
+           // ctx.drawImage(playerImg, 0, 0, 
+             //   playerImg.width, playerImg.height, cx, cy, s, s);
+                //sx, 0, canvas.width, canvas.height - dy,
+                //0, dy, canvas.width, canvas.height - dy);
+
         }
 
         bullets && bullets.forEach(function(bullet) {
@@ -454,19 +784,88 @@ window.onload = function() {
                     bullet.inUse = false;
                 }
             });
+            drawBomes && bomes.forEach(function(bom){
+                if(bom.isAlive() && bom.hit(x, y, 2)){
+                    bom.damage();
+                    bullet.inUse = false;
+                }
+
+            });
             bullet.y += bullet.v;
             if (bullet.y < 0) {
                 bullet.inUse = false;
             }
         });
 
+        if(status == Status.inGame){
+            if(stage == Stage.stage1)
+            {
+                 console.log("stage"+1);
+                 var remainingEnemies = enemies.filter(function(enemy) {
+                    return enemy.isAlive();
+                 }).length;
+                 if(remainingEnemies <= 0)
+                 {
+                    console.info("stage1End");
+                    stage = Stage.stage2;
+                    numEnemies = 2 * gameRound;
+                    for(var i = 0; i < numEnemies; i++)
+                    {
+                        bomes.push(new TimerBom(canvas));
+                        bomes[i].spawn(i);
+                    }
+                 }
+            }
+            else if(stage == Stage.stage2)
+            {
+                console.log("stage"+2);
+                if(bomes.length <= 0)
+                {
+                    stage = Stage.stage3;
+                    numEnemies = 3 * gameRound;
+                    for (var i = 0; i < numEnemies; i++) {
+                        enemies.push(new Enemy(canvas));
+                        if(i == numEnemies - 1 && gameRound >= 2)
+                        {
+                            enemies[i].setLife(1);
+                        }
+                    }
+                }
+
+            }
+            else if(stage == Stage.stage3)
+            {
+                console.log("stage"+3);
+                
+            }
+        }
+
+        if(mylife <= 0)
+        {
+            status = Status.gameOver;
+        }
+
         if (drawStatus) {
-            var remainingEnemies = enemies.filter(function(enemy) {
-                return enemy.isAlive();
-            }).length;
-            if (status == Status.inGame && remainingEnemies <= 0) {
+            var remainingEnemies;
+            if(stage == Stage.stage2)
+            {
+                remainingEnemies = bomes.filter(function(bom) {
+                    return bom.isAlive();
+                }).length;
+            }else
+            {
+                remainingEnemies = enemies.filter(function(enemy) {
+                    return enemy.isAlive();
+                }).length;
+            }
+            
+
+
+            if (status == Status.inGame && stage == Stage.stage3 && remainingEnemies <= 0) {
                 status = Status.gameClear;
                 muteSE = true;
+                gameRound++;
+                mylife+=5;
                 numEnemies++;
             }
             ctx.font = '20pt Calibri';
@@ -474,11 +873,26 @@ window.onload = function() {
             ctx.textAlign = 'right';
             ctx.textBaseline = 'top';
             var s = "enemie(s): " + remainingEnemies;
+            ctx.fillText(s, canvas.width - 10,25);
+            s = "LIFE:" + mylife;
+            ctx.fillText(s, 0 + 100, 25);
+
+            if(stage == Stage.stage1)
+                s = "WAVE 1 11";
+            if(stage == Stage.stage2)
+                s = "WAVE 2";
+            if(stage == Stage.stage3)
+                s = "WAVE 3";
+            if(stage != Stage.stage0)
             ctx.fillText(s, canvas.width - 10, 0);
+
+            s = "GameRound:" + gameRound;
+            ctx.fillText(s, 180, 0);
+
         }
 
         if (msg) {
-            ctx.font = '40pt Calibri';
+            ctx.font = '20pt Calibri';
             ctx.fillStyle = 'white';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
