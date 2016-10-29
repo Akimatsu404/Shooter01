@@ -108,11 +108,14 @@ function Item(canvas){
         var s;
         if(itemType == 1)
         {
-            s = "レ"
+            s = "R"
         }
         else if(itemType == 0)
         {
-            s = "友"
+            s = "F"
+        }
+        else if(itemType == 2){
+            s = "N"
         }
         
         ctx.fillText(s, x, y + 7);
@@ -220,7 +223,7 @@ function Enemy(canvas) {
         }
         else if(actionType == 1)
         {
-            for(var i = 0; i < n + 3; i++)
+            for(var i = 0; i < n + 2; i++)
             {
                 var th = i*2*Math.PI/n;
                 var vx = (x-px) + ((Math.random() * 6) * 5);
@@ -232,7 +235,7 @@ function Enemy(canvas) {
         }
         else if(actionType == 2)
         {
-            for(var i = 0; i < n + 3; i++)
+            for(var i = 0; i < n + 2; i++)
             {
                 var th = i*2*Math.PI/n;
                 var vx = (x-px) * Math.cos(th);
@@ -927,6 +930,10 @@ window.onload = function() {
                         friendlyUnits.push(f);
                     }
                 }
+                else if(itype == 2)
+                {
+                    myType = 0;
+                }
 
                 item.setIsUse(false);
             }
@@ -981,8 +988,8 @@ window.onload = function() {
                     {
                         var item = new Item(canvas);
                         var pos = enemy.getPos();
-                        var a = Math.floor(Math.random() * 2) + 0;
-                        a = a % 2;
+                        var a = Math.floor(Math.random() * 3) + 0;
+                        a = a % 3;
                         item.spawn(a, pos.x, pos.y);
                         items.push(item);
                         console.log("len"+items.length);
