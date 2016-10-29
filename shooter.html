@@ -315,6 +315,7 @@ function Enemy(canvas) {
             x += dt*(px-x)/1000 * th;
             y += dt*(py-y)/1000 * th;
         }
+        //低速行動の時
         else if(0 < life && actionType == 2)
         {
             //th += 1.5*dt*2*Math.PI/1000;
