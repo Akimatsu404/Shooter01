@@ -112,13 +112,13 @@ function Item(canvas){
         ctx.textAlign = 'center';
         ctx.textBaseline = 'center';
         var s;
-        if(itemType == 1)
-        {
-            s = "L";
-        }
-        else if(itemType == 0)
+        if(itemType == 0)
         {
             s = "F";
+        }
+        else if(itemType == 1)
+        {
+            s = "L";
         }
         else if(itemType == 2)
         {
@@ -235,6 +235,14 @@ function Enemy(canvas) {
             }
 
 
+            if(life <= 2){
+                ctx.beginPath();
+                if(life == 2){ctx.fillStyle = 'rgba(150, 150, 0, 0.5)';}
+                else if(life <= 1){ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';}
+                ctx.arc(x, y, er, 0, Math.PI*2, false);
+                ctx.fill();
+            }
+
         }
 
         bullets.forEach(function(bullet) {
@@ -296,8 +304,6 @@ function Enemy(canvas) {
         {
 
         }
-
-
 
         playSE(enemyShotAudio);
     };
