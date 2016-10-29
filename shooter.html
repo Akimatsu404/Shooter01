@@ -108,14 +108,15 @@ function Item(canvas){
         var s;
         if(itemType == 1)
         {
-            s = "R"
+            s = "L";
         }
         else if(itemType == 0)
         {
-            s = "F"
+            s = "F";
         }
-        else if(itemType == 2){
-            s = "N"
+        else if(itemType == 2)
+        {
+            s = "N";
         }
         
         ctx.fillText(s, x, y + 7);
