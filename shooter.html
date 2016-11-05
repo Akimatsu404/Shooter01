@@ -58,6 +58,8 @@ var bgReady = false;
 var bgImg = new Image();
 var playerImg = new Image();
 var enemyImg0 = new Image(), enemyImg1 = new Image(), enemyImg2 = new Image();
+var bossImg0 = new Image(), bossImg1 = new Image(), bossImg2 = new Image();
+var bossImg0B = new Image(), bossImg1B = new Image(), bossImg2B = new Image();
 
 bgImg.onload = function() {
     bgReady = true;
@@ -69,6 +71,12 @@ playerImg.src = 'player_img1.png';
 enemyImg0.src = 'e3.png';
 enemyImg1.src = 'e2.png';
 enemyImg2.src = 'e1.png';
+bossImg0.src = 'boss.png';
+bossImg0B.src = 'boss(B).png';
+bossImg1.src = 'bossArm.png';
+bossImg1B.src = 'bossArm(B).png';
+bossImg2.src = 'bossArm.png';
+bossImg2B.src = 'bossArm(B).png';
 
 bgmAudio.loop = 'true';
 bgmAudio.play();
@@ -258,7 +266,7 @@ function Enemy(canvas) {
 
     this.fire = function() {
         var n = lifeProp[life].numB;
-        //行動タイプ 0:通常、1:追尾、2:丸花、3:六花、4:蛇
+        //行動タイプ 0:通常、1:追尾、2:丸花、3:六花、4:蛇、5:
         if(actionType == 0){
             for (var i = 0; i < n; i++) {
                 var th = i*2*Math.PI/n;
@@ -357,7 +365,6 @@ function Enemy(canvas) {
 
         if (dying && !explode.update()) {
             dying = false;
-
         }
 
         if (lastTick == undefined) {
@@ -369,6 +376,18 @@ function Enemy(canvas) {
         var dt = tick - lastTick;
         //通常行動の時
         if (0 < life && actionType == 0) {
+            /*
+            x += dt*vx/1000;
+            x += 10*Math.cos(th/1.5);
+           th += 1.5*dt*2*Math.PI/1000;
+            y += dt*2*vy/1000;
+            if (x < -er
+            || canvas.width + er < x
+            || canvas.height + er < y) {
+                spawn();
+            }
+            */
+            
             x += dt*vx/1000;
             x += lifeProp[life].daze*Math.cos(th);
            th += 1.5*dt*2*Math.PI/1000;
@@ -391,7 +410,7 @@ function Enemy(canvas) {
             var distance = 100;
             var length = (px-x)*(px-x) + (py-y)*(py-y);
             //console.log(length);
-            th = dt*2*Math.PI/1000*((Math.random() * -1.0)+10.0);
+            th = dt*2*Math.PI/1000*((Math.random() * 1.0)+10.0);
             if(length <= distance)
             {
                 x -= dt*(px-x)/1000 * length
@@ -427,9 +446,18 @@ function Enemy(canvas) {
                 spawn();
             }
         }
+        //蛇
         else if(0 < life && actionType == 4)
         {
-
+            x += dt*vx/1000;
+            x += lifeProp[life].daze*Math.cos(th);
+           th += 1.5*dt*2*Math.PI/1000;
+            y += dt*vy/1000;
+            if (x < -er
+            || canvas.width + er < x
+            || canvas.height + er < y) {
+                spawn();
+            }
         }
 
 
@@ -495,25 +523,201 @@ function Enemy(canvas) {
 }
 
 function Boss(canvas){
-    var x1, y1;
-    var x2, y2;
-    var x3, y3;
-    var life1, life2, life3;
-    var dying1 = false, dying2 = false, dying3 = false;
-    var r1, r2, r3;
-    var explode = new Explode();
 
-    this.spawn = function(){
+    //的数
+    var n = 3;
+    var x = [];
+    var y = [];
+    var vx = [];
+    var vy = [];
+    var life = [];
+    var dying = [];
+    //敵自体の当たり判定
+    var er = [];
+    //ダメージが反映される部分の当たり判定
+    var wr = [];
+    var img = [];
+    var img_break = [];
+
+    var px, py;
+    var explode = new Explode();
+    var bullets = [];
+
+    function spawn(){
+        
+        x.push(canvas.width/2);
+        x.push(50);
+        x.push(canvas.width - 50);
+
+        y.push(100);
+        y.push(100);
+        y.push(100);
+
+        life.push(20);
+        life.push(10);
+        life.push(10);
+
+        er.push(50);
+        er.push(25);
+        er.push(25);
+        wr.push(10);
+        wr.push(10);
+        wr.push(10);
+
+        for(var i = 0; i < n; ++i){
+            dying.push(false);
+        }
+
+        img.push(bossImg0);
+        img.push(bossImg1);
+        img.push(bossImg2);
+        img_break.push(bossImg0B);
+        img_break.push(bossImg1B);
+        img_break.push(bossImg2B);
+
+        console.log("bossSpawn");
+        console.log(x);
+        console.log(y);
+        console.log(img);
+
+    }
+    spawn();
+
+    this.draw = function(ctx){
+
+        //1 2 3
+        for(var i = 0; i < n; ++i)
+        {
+            if (dying[i]) {
+                explode.draw(ctx, x[i], y[i]);
+            } else if (1 <= life[i]) {
+                var cx = img[i].width / 2;
+                var cy = img[i].height / 2;
+                ctx.drawImage(img[i], x[i] - cx, y[i] - cy);
+            } 
+        }
+
+        bullets.forEach(function(bullet) {
+            var x = bullet.x;
+            var y = bullet.y;
+            ctx.beginPath();
+            ctx.fillStyle = 'hsl(' + 360*bullet.life + ', 100%, 50%)';
+            ctx.arc(x, y, br, 0, Math.PI*2, false);
+            ctx.fill();
+        });
 
     }
 
-this.draw = function(ctx){
+    this.hit = function(tx, ty, r){
 
-}
+        for(var i = 0; i < n; ++i)
+        {
+            var dx = tx - x[i];
+            var dy = ty - y[i];
+            if (dx*dx + dy*dy < (er[i] + r)*(er[i] + r)) {
+                return {isHit:true, id:i};
+            }
+            return false;
+        }
+    }
 
-this.hit = function(tx, ty, r){
+    this.hit = function(tx, ty, r, id){
+            var dx = tx - x[id];
+            var dy = ty - y[id];
+            if (dx*dx + dy*dy < (er[id] + r)*(er[id] + r)) {
+                return true;
+            }
+            return false;
+    }
 
-}
+    this.weaknessHit = function(tx,ty, r){
+        for(var i = 0; i < n; ++i)
+        {
+            var dx = tx - x[i];
+            var dy = ty - y[i];
+            if (dx*dx + dy*dy < (wr[i] + r)*(wr[i] + r)) {
+                return {isHit:true, id:i};
+            }
+            return false;
+        }
+    }
+
+    this.update = function(){
+        //基本的に動きはない、攻撃、バリア、敵射出のみ。
+        //本体の処理
+
+        for(var i = 0; i < n; ++i)
+        {
+
+        }
+
+        //本体破壊後
+        if(dying[0])
+        {
+            return;
+        }
+
+        //バリア：両腕が破壊されていない時展開。
+        if(!dying[1] && !dying[2])
+        {
+            barrier(x[0], y[0]);
+        }
+        //破壊された場合、本体から攻撃する。
+        else
+        {
+
+        }
+
+        //右腕の処理(左側)
+        if(dying[1])
+        {
+
+        }
+        else
+        {
+            if(life[1] <= 5)
+            {
+
+            }
+        }
+
+        //左腕の処理(右側)
+        if(dying[2])
+        {
+
+        }
+        else
+        {
+            if(life[2] <= 5)
+            {
+
+            }
+        }
+
+
+    }
+
+    this.setPlayerPos = function(x1, y1){
+        px = x1;
+        py = y1;
+    }
+
+    this.getTargetCount = function()
+    {
+        return n;
+    }
+
+    this.isAlive = function(id) {
+        return 1 <= life[id];
+    };
+    this.getPos = function(id)
+    {
+        return {x:x[id], y:y[id]};
+    }
+
+    function barrier(x1, y1){
+
+    }
 
 }
 
@@ -715,19 +919,32 @@ function FriendlyUnit(canvas)
 
 };
 
+
 var items;
 var enemies;
 var bomes;
 var friendlyUnits;
+var boss;
 
-function init(canvas, n) {
+function init() {
+    
     enemies = [];
-    for (var i = 0; i < n; i++) {
-        enemies.push(new Enemy(canvas));
-    }
     bomes = [];
     friendlyUnits = [];
     items = [];
+}
+
+function init_enemy(canvas, n){
+
+    for (var i = 0; i < n; i++) {
+        enemies.push(new Enemy(canvas));
+    }
+}
+
+function init_boss(canvas){
+    //ボス生成
+    boss = new Boss(canvas);
+
 }
 
 //スタートメゾット
@@ -745,9 +962,9 @@ window.onload = function() {
                    inGame:3, gameClear:4, dying:5, gameOver:6 };
     var status = Status.title;
 
-    var Stage = {stage0:0, stage1:1, stage2:2, stage3:3};
+    var Stage = {stage0:0, stage1:1, stage2:2, stage3:3, stageBoss:4};
     var stage = Stage.stage0;
-    var gameRound = 1;
+    var gameRound = 6;//1;
 
     var count;
     var mylife = 5;
@@ -768,6 +985,23 @@ window.onload = function() {
 
     var startTick = Date.now();
 
+    function previewBoss(){
+        var cx = bossImg0.width / 2;
+        var cy = bossImg0.height / 2;
+        ctx.drawImage(bossImg0, canvas.width/2 - cx, 100 - cy);
+
+        cx = bossImg1.width / 2;
+        cy = bossImg1.height / 2;
+        ctx.drawImage(bossImg1, 50 - cx, 100 - cy);
+
+        cx = bossImg2.width / 2;
+        cy = bossImg2.height / 2;
+        ctx.drawImage(bossImg2, canvas.width - 50 - cx, 100 - cy);
+    }
+
+    function bossAlarm(){
+
+    }
 
     (function loop() {
 
@@ -811,18 +1045,26 @@ window.onload = function() {
         var drawBomes = false;
         var drawFriendlyUnits = false;
         var drawItems = false;
+        var drawBoss = false;
 
         switch (status) {
         case Status.title:
             msg = 'Press space to start!!!';
             numEnemies = 2 * gameRound;
+
+            if(gameRound > 5)
+            {
+                numEnemies = 3;
+                previewBoss();
+            }
+
             break;
         case Status.toStart:
             myX = canvas.width/2;
             myY = 4*canvas.height/5;
             myType = 0;
             bullets = [];
-            init(canvas, numEnemies);
+            init();
 
             drawFriendlyUnits = true;
 
@@ -832,8 +1074,17 @@ window.onload = function() {
                 setTimeout(function loop() {
                     if (--count < 0) {
                         status = Status.inGame;
-                        stage = Stage.stage1;
-                    } else {
+                        if(gameRound > 5)
+                            {
+                                stage = Stage.stageBoss;
+                                init_boss(canvas);
+                            }
+                        else 
+                            {
+                                stage = Stage.stage1;
+                                init_enemy(canvas, numEnemies);
+                            }
+                    }else {
                         setTimeout(loop, 1000);
                     }
                 }, 1000);
@@ -841,9 +1092,17 @@ window.onload = function() {
             //break; // intentionally fall through
         case Status.countDown:
             msg = "" + count;
+            console.log(count);
             drawPlayer = true;
             drawStatus = true;
             drawFriendlyUnits = true;
+            drawBoss = true;
+
+            if(gameRound > 5)
+            {
+                previewBoss();
+            }
+
             break;
         case Status.inGame:
             drawEnemies = true;
@@ -852,6 +1111,7 @@ window.onload = function() {
             drawBomes = true;
             drawItems = true;
             drawFriendlyUnits = true;
+            drawBoss = true;
             break;
         case Status.gameClear:
             msg = 'GAME CLEAR!!!';
@@ -1046,6 +1306,42 @@ window.onload = function() {
             friend.update(myX, myY);
             friend.draw(ctx);
         });
+
+        if(drawBoss && boss)
+        {
+            boss.setPlayerPos(myX, myY);
+            boss.update();
+            boss.draw(ctx);
+            if (status != Status.inGame) return;
+            var targetCount = boss.getTargetCount();
+            for(var i = 0; i < targetCount; ++i)
+            {
+                if(boss.isAlive(i)){
+                    if(mylife <= 0 && !matchlessMode)
+                    {
+                        explode.reset();
+                        status = Status.dying;
+                        playSE(deadAudio);
+                    }
+                    else if(boss.hit(myX, myY, myR, i)&& !matchlessMode)
+                    {
+                        --mylife;
+                        var bob = boss.getPos(i);
+                        var vx = myX - bob.x,
+                            vy = myY - bob.y;
+                        var t =(vx*vx + vy*vy);
+                        var length = Math.sqrt(t);
+
+                        myX += (vx / length)*10;
+                        myY += (vy / length)*10;
+                        playSE(explosionAudio);
+                    }
+                }
+            }
+
+
+
+        }
 
         drawItems && items.forEach(function(item){
             item.update();
@@ -1245,7 +1541,13 @@ window.onload = function() {
             if(stage != Stage.stage0)
             ctx.fillText(s, canvas.width - 10, 0);
 
+
             s = "GameRound:" + gameRound;
+            if(gameRound > 5)
+            {
+                s = "BOSS Round";
+            }
+
             ctx.fillText(s, 180, 0);
 
         }
