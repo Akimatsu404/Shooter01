@@ -536,6 +536,12 @@ function Boss(canvas){
     var er = [];
     //ダメージが反映される部分の当たり判定
     var wr = [];
+    //バリアが展開されているか
+    var onBarrier = true;
+    //バリアの範囲
+    var br = 120;
+
+
     var img = [];
     var img_break = [];
 
@@ -590,11 +596,20 @@ function Boss(canvas){
         {
             if (dying[i]) {
                 explode.draw(ctx, x[i], y[i]);
+                console.log("explode" + i);
             } else if (1 <= life[i]) {
                 var cx = img[i].width / 2;
                 var cy = img[i].height / 2;
                 ctx.drawImage(img[i], x[i] - cx, y[i] - cy);
             } 
+        }
+
+        if(onBarrier){
+            ctx.beginPath();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.arc(x[0], y[0], br, 0, Math.PI*2, false);
+            ctx.fill();
+            ctx.closePath();
         }
 
         bullets.forEach(function(bullet) {
@@ -636,11 +651,42 @@ function Boss(canvas){
             var dx = tx - x[i];
             var dy = ty - y[i];
             if (dx*dx + dy*dy < (wr[i] + r)*(wr[i] + r)) {
+                if(i == 0 && onBarrier){return false;}
                 return {isHit:true, id:i};
             }
             return false;
         }
     }
+
+    this.barrierHit = function(tx, ty, r){
+        if(!onBarrier) return;
+        var dx = tx - x[0];
+        var dy = ty - y[0];
+        if (dx*dx + dy*dy < (br + r)*(br + r)) {
+            return true;
+        }
+        return false;
+    }
+
+
+    this.die = function(id) {
+        dying[id] = true;
+        console.log(dying[id]);
+        playSE(explosionAudio);
+        explode.reset();
+    };
+
+    this.damage = function(id) {
+        if(id == 0 && onBarrier){
+            return;
+        }
+
+        if (--life[id] <= 0) {
+            this.die(id);
+        } else {
+            //this.fire();
+        }
+    };
 
     this.update = function(){
         //基本的に動きはない、攻撃、バリア、敵射出のみ。
@@ -710,6 +756,11 @@ function Boss(canvas){
     this.isAlive = function(id) {
         return 1 <= life[id];
     };
+
+    this.getLife = function(id){
+        return life[id];
+    }
+
     this.getPos = function(id)
     {
         return {x:x[id], y:y[id]};
@@ -717,6 +768,10 @@ function Boss(canvas){
 
     function barrier(x1, y1){
 
+    }
+
+    this.onBarrier = function(){
+        return onBarrier;
     }
 
 }
@@ -964,7 +1019,7 @@ window.onload = function() {
 
     var Stage = {stage0:0, stage1:1, stage2:2, stage3:3, stageBoss:4};
     var stage = Stage.stage0;
-    var gameRound = 6;//1;
+    var gameRound = 1;//1;
 
     var count;
     var mylife = 5;
@@ -1314,6 +1369,17 @@ window.onload = function() {
             boss.draw(ctx);
             if (status != Status.inGame) return;
             var targetCount = boss.getTargetCount();
+            if(boss.barrierHit(myX, myY, myR)){
+                var bob = boss.getPos(0);
+                var vx = myX - bob.x,
+                    vy = myY - bob.y;
+                var t =(vx*vx + vy*vy);
+                var length = Math.sqrt(t);
+
+                myX += (vx / length)*10;
+                myY += (vy / length)*10;
+            }
+
             for(var i = 0; i < targetCount; ++i)
             {
                 if(boss.isAlive(i)){
@@ -1338,6 +1404,7 @@ window.onload = function() {
                     }
                 }
             }
+
 
 
 
@@ -1418,6 +1485,24 @@ window.onload = function() {
             var y = bullet.y;
             ctx.arc(x, y, 2, 0, Math.PI*2, false);
             ctx.fill();
+            if(drawBoss && boss){
+                if(boss.barrierHit(x, y, 2)){
+                    bullet.inUse = false;
+                }
+                for(var i = 0; i < boss.getTargetCount(); ++i){
+                    if(boss.isAlive(i) && boss.hit(x, y, 2, i)){
+
+                        boss.damage(i);
+                        bullet.inUse = false;
+                        if(boss.getLife(i) <= 0){
+
+                        }
+                    }
+
+                }
+
+            }
+
             drawEnemies && enemies.forEach(function(enemy) {
                 if (enemy.isAlive() && enemy.hit(x, y, 2)) {
                     enemy.damage();
@@ -1538,6 +1623,8 @@ window.onload = function() {
                 s = "WAVE 2";
             if(stage == Stage.stage3)
                 s = "WAVE 3";
+            if(stage == Stage.stageBoss)
+                s = "BOSS";
             if(stage != Stage.stage0)
             ctx.fillText(s, canvas.width - 10, 0);
 
