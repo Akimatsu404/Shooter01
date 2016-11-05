@@ -41,6 +41,8 @@ canvas {
 
 "use strict";
 
+var bDebug = 0;
+
 var shotAudio = document.getElementById('shotAudio');
 var explosionAudio = document.getElementById('explosionAudio');
 var enemyShotAudio = document.getElementById('enemyShotAudio');
@@ -1020,7 +1022,10 @@ window.onload = function() {
     var Stage = {stage0:0, stage1:1, stage2:2, stage3:3, stageBoss:4};
     var stage = Stage.stage0;
     var gameRound = 1;//1;
-
+    if(bDebug == 1){
+        gameRound = 6;
+    }
+    
     var count;
     var mylife = 5;
     var myX, myY, myType;
