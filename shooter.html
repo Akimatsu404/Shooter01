@@ -41,7 +41,7 @@ canvas {
 
 "use strict";
 
-var bDebug = 1;
+var bDebug = 0;
 
 var shotAudio = document.getElementById('shotAudio');
 var explosionAudio = document.getElementById('explosionAudio');
@@ -138,6 +138,9 @@ function Item(canvas){
         else if(itemType == 3)
         {
             s = "P";
+        }
+        else if(itemType == 4){
+            s = "B";
         }
         
         ctx.fillText(s, x , y + 7);
@@ -694,11 +697,22 @@ function Boss(canvas){
         playSE(enemyShotAudio);
     }
 
-    this.bossFire = function(mode){
+    this.bossFire = function(mode, count){
         if(mode == 0){
-            for(var i = -45; i < 50; i+=5){
-                var bullet = {x:x[0] + i, y:y[0] + 30, vx:vx, vy:vy, life:10};
+            for(var i = -45 + count; i < 50 - count; i+=5){
+                var bullet = {x:x[0] + i, y:y[0] + 30, vx:vx * (i / 5), vy:vy * (i / 5), life:10};
                 bullets.push(bullet);
+            }
+
+        }
+        else if(mode == 1){
+
+            if(count <= 50){
+                for(var i = -99; i < 100; i+=5){
+                    var bullet = {x:x[0] + i, y:y[0] + 30, vx:vx * (i / 5), vy:vy * (i / 5), life:10};
+                    bullets.push(bullet);
+                }
+
             }
 
         }
@@ -751,10 +765,6 @@ function Boss(canvas){
     }
 
     this.bulletsHit = function(id, tx, ty, r) {
-        console.log(id);
-        console.log("0:"+ bullets.length);
-        console.log("1:"+bullets1.length);
-        console.log("2:"+bullets2.length);
 
         if(id == 0){
             for (var i = 0; i < bullets.length; i++) {
@@ -831,7 +841,7 @@ function Boss(canvas){
 
     var lastTick;
     var th = Math.PI*Math.random();
-    var chargeCount1 = 0, chargeCount2 = 0;
+    var chargeCount1 = 0, chargeCount2 = 0, chargeCount0 = 0;
     var maxCharge = 15;
     var turn1 = 2, turn2 = 2;;
 
@@ -857,9 +867,18 @@ function Boss(canvas){
         if(brokenArms >= 2 && life[0] > 0)
         {
             onBarrier = false;
+            chargeCount0 -= 5;
+            if(chargeCount0 < 0){
+                chargeCount0 = 200;
+            }
 
-            this.bossFire(0);
-
+            if(life[0] >= 10){
+                this.bossFire(0, chargeCount0);
+            }
+            else {
+                this.bossFire(1, chargeCount0);
+            }
+            
         }
         //バリア：両腕が破壊されていない時展開。
         else if(life[0] <= 0){
@@ -874,6 +893,15 @@ function Boss(canvas){
         if(brokenLeftArms)
         {
             //トークン発射
+            if(--chargeCount1 <= 0){
+                var item = new Item(canvas);
+ //               var a = Math.floor(Math.random() * 5) + 0;
+//                a = a % 5;
+                item.spawn(4, x[1], y[1]);
+                items.push(item);
+                chargeCount1 = 300;
+            }
+
         }
         else
         {
@@ -908,6 +936,14 @@ function Boss(canvas){
         if(brokenRightArms)
         {
             //トークン発射
+            if(--chargeCount2 <= 0){
+                var item = new Item(canvas);
+ //               var a = Math.floor(Math.random() * 5) + 0;
+//                a = a % 5;
+                item.spawn(3, x[2], y[2]);
+                items.push(item);
+                chargeCount2 = 300;
+            }
         }
         else
         {
@@ -952,9 +988,8 @@ function Boss(canvas){
         //本体
         bullets.forEach(function(bullet) {
 
-            bullet.y += 5;  
             bullet.x += dt*bullet.vx/1000;
-            bullet.y += dt*bullet.vy/1000;
+            bullet.y += dt*bullet.vy/1000 + 5;
             bullet.life -= dt/1000/1.0;
 
         });
@@ -1253,6 +1288,7 @@ window.onload = function() {
     var ctx = canvas.getContext('2d');
 
     var matchlessMode = false;
+    var barrierTime = 0;
 
     var w = canvas.width;
     var h = canvas.height;
@@ -1520,6 +1556,12 @@ window.onload = function() {
 
                 }
             }
+
+            if(--barrierTime >= 0){
+                matchlessMode = true;
+            }else{
+                matchlessMode = false;
+            }
         }
 
         var myR = 3;
@@ -1693,6 +1735,9 @@ window.onload = function() {
                 {
                     mylife += 2;
                 }
+                else if(itype == 4){
+                    barrierTime = 1000;
+                }
 
                 item.setIsUse(false);
             }
@@ -1722,10 +1767,16 @@ window.onload = function() {
 //            var dy = (tick - startTick)/100 % bgImg.height;
 
             ctx.drawImage(playerImg, myX - cx, myY - cy);
-           // ctx.drawImage(playerImg, 0, 0, 
-             //   playerImg.width, playerImg.height, cx, cy, s, s);
-                //sx, 0, canvas.width, canvas.height - dy,
-                //0, dy, canvas.width, canvas.height - dy);
+
+
+            if(barrierTime > 0){
+                var barrierRadius = barrierTime / 10;
+                ctx.beginPath();
+                ctx.fillStyle = 'rgba(250, 250, 250, 0.5)';
+                ctx.arc(myX, myY, barrierRadius, 0, Math.PI*2, false);
+                ctx.fill();
+            }
+
 
         }
 
@@ -1857,10 +1908,19 @@ window.onload = function() {
             if (status == Status.inGame && stage == Stage.stage3 && remainingEnemies <= 0) {
                 status = Status.gameClear;
                 muteSE = true;
-                gameRound++;
+                //gameRound++;
+                gameRound = 6;
                 mylife+=5;
                 numEnemies++;
             }
+            if(status == Status.inGame && stage == Stage.stageBoss && !boss.isAlive(0)){
+                status = Status.gameClear;
+                muteSE = true;
+                //gameRound++;
+                gameRound = 1;
+                boss = null;
+            }
+
             ctx.font = '20pt Calibri';
             ctx.fillStyle = 'white';
             ctx.textAlign = 'right';
@@ -1883,7 +1943,7 @@ window.onload = function() {
 
 
             s = "GameRound:" + gameRound;
-            if(gameRound > 5)
+            if(gameRound > 1)
             {
                 s = "BOSS Round";
             }
