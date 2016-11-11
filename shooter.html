@@ -41,7 +41,7 @@ canvas {
 
 "use strict";
 
-var bDebug = 0;
+var bDebug = 1;
 
 var shotAudio = document.getElementById('shotAudio');
 var explosionAudio = document.getElementById('explosionAudio');
@@ -540,6 +540,9 @@ function Boss(canvas){
     var wr = [];
     //バリアが展開されているか
     var onBarrier = true;
+    //両腕が破壊された数
+    var brokenArms = 0;
+    var brokenRightArms = false, brokenLeftArms = false;
     //バリアの範囲
     var br = 120;
 
@@ -598,12 +601,22 @@ function Boss(canvas){
         {
             if (dying[i]) {
                 explode.draw(ctx, x[i], y[i]);
-                console.log("explode" + i);
             } else if (1 <= life[i]) {
                 var cx = img[i].width / 2;
                 var cy = img[i].height / 2;
                 ctx.drawImage(img[i], x[i] - cx, y[i] - cy);
             } 
+        }
+
+        if(brokenLeftArms){
+            var cx = img_break[1].width / 2;
+            var cy = img_break[1].height / 2;
+            ctx.drawImage(img_break[1], x[1] - cx, y[1] -11 - cy);
+        }
+        if(brokenRightArms){
+            var cx = img_break[2].width / 2;
+            var cy = img_break[2].height / 2;
+            ctx.drawImage(img_break[2], x[2] - cx, y[2]- 11 - cy);
         }
 
         if(onBarrier){
@@ -619,10 +632,40 @@ function Boss(canvas){
             var y = bullet.y;
             ctx.beginPath();
             ctx.fillStyle = 'hsl(' + 360*bullet.life + ', 100%, 50%)';
-            ctx.arc(x, y, br, 0, Math.PI*2, false);
+            ctx.arc(x, y, 3, 0, Math.PI*2, false);
             ctx.fill();
         });
 
+    }
+
+    this.fire = function() {
+        for (var i = 0; i < n; i++) {
+            var th = i*2*Math.PI/n;
+            var vx = 100*Math.cos(th)*Math.cos(-th);
+            var vy = 100*Math.sin(th)*Math.sin(-th);
+            var bullet = { x: x, y: y, vx: vx*Math.sin(th), vy: vy*Math.cos(th), life: 4 };
+            bullets.push(bullet);
+        }
+
+        playSE(enemyShotAudio);
+    };
+
+    this.armsFire = function(id, mode){
+        var vx = 0;
+        var vy = 1;
+        //1::2ウェイ連射(一定間隔)
+        if(mode == 0){
+            var bullet = {x:x[id] + 5, y:y[id], vx:vx, vy:vy, life:5};
+            bullets.push(bullet);
+            var bullet = {x:x[id] - 5, y:y[id], vx:vx, vy:vy, life:5};
+            bullets.push(bullet);
+        }
+        //2::プレイヤーの発射時点の座標を取り、そこに向かってムーブ弾
+        else if(mode == 1){
+
+
+        }
+        playSE(enemyShotAudio);
     }
 
     this.hit = function(tx, ty, r){
@@ -670,12 +713,42 @@ function Boss(canvas){
         return false;
     }
 
+    this.bulletsHit = function(tx, ty, r) {
+        for (var i = 0; i < bullets.length; i++) {
+            var bullet = bullets[i];
+            var dx = tx - bullet.x;
+            var dy = ty - bullet.y;
+            if (dx*dx + dy*dy < (br + r)*(br + r)) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    this.bulletsHitAndIndex = function(tx, ty, r) {
+        for (var i = 0; i < bullets.length; i++) {
+            var bullet = bullets[i];
+            var dx = tx - bullet.x;
+            var dy = ty - bullet.y;
+            if (dx*dx + dy*dy < (br + r)*(br + r)) {
+                return {isHit:true, id:i}
+            }
+        }
+        return false;
+    };
 
     this.die = function(id) {
         dying[id] = true;
+        if(id == 1){
+            brokenLeftArms = true;//左側の腕
+        }else if(id == 2){
+            brokenRightArms = true;//右側の腕
+        }
+
         console.log(dying[id]);
         playSE(explosionAudio);
         explode.reset();
+        brokenArms++;
     };
 
     this.damage = function(id) {
@@ -690,13 +763,21 @@ function Boss(canvas){
         }
     };
 
+    var lastTick;
+    var th = Math.PI*Math.random();
+    var chargeCount1 = 0, chargeCount2 = 0;
+    var maxCharge = 15;
+    var turn1 = 2, turn2 = 2;;
+
     this.update = function(){
         //基本的に動きはない、攻撃、バリア、敵射出のみ。
         //本体の処理
 
         for(var i = 0; i < n; ++i)
         {
-
+            if (dying[i] && !explode.update()) {
+                dying[i] = false;
+            }
         }
 
         //本体破壊後
@@ -705,43 +786,114 @@ function Boss(canvas){
             return;
         }
 
-        //バリア：両腕が破壊されていない時展開。
-        if(!dying[1] && !dying[2])
-        {
-            barrier(x[0], y[0]);
-        }
         //破壊された場合、本体から攻撃する。
-        else
+        if(brokenArms >= 2)
         {
-
+            onBarrier = false;
+        }
+        //バリア：両腕が破壊されていない時展開。
+        else 
+        {
+            onBarrier = true;
         }
 
-        //右腕の処理(左側)
-        if(dying[1])
+        //左側の腕の処理 1
+        if(brokenLeftArms)
         {
-
+            //トークン発射
         }
         else
         {
-            if(life[1] <= 5)
-            {
+            //max + 1 -min      min
 
+            if(--chargeCount1 <= 0 && 
+                chargeCount1 % (Math.floor(Math.random() * 3)) == 0){
+                var a = Math.round(th * Math.floor(Math.random() * 4) + 11);
+
+                if(a % 2 == 0){
+                    this.armsFire(1, 0);
+                    chargeCount1 = maxCharge;
+                }
+                else {
+                    this.armsFire(1, 1);
+                    chargeCount1 = maxCharge;
+                }
+
+                if(life[1] <= 5)
+                {
+
+                    
+                }
             }
+
+            if(x[1] > 30 + 50 || x[1] < -10 + 50){
+                turn1 *= -1;
+            }
+            x[1] += turn1;
+
         }
 
-        //左腕の処理(右側)
-        if(dying[2])
+        //右側の腕の処理 2
+        if(brokenRightArms)
         {
-
+            //トークン発射
         }
         else
         {
+
+            if(--chargeCount2 <= 0 && 
+                chargeCount2 % (Math.floor(Math.random() * 3)) == 0){
+                var a = Math.round(th * Math.floor(Math.random() * 4) + 11);
+
+                if(a % 2 == 0){
+                    this.armsFire(2, 0);
+                    chargeCount2 = maxCharge;
+                }
+                else {
+                    this.armsFire(2, 1);
+                    chargeCount2 = maxCharge;
+                }
+
+                if(life[2] <= 5)
+                {
+                    //一定時間マイナス移動、一定時間プラス移動(x座標のみ)
+                    //-1 0 1
+                }
+            }
+
+            //this.armsFire(2, 0);
             if(life[2] <= 5)
             {
-
+                
             }
+
+            if(x[2] > 10 + (canvas.width - 50) || x[2] < -30 + (canvas.width - 50)){
+                turn2 *= -1;
+            }
+            x[2] += turn2;
+
+
         }
 
+
+
+
+        var tick = Date.now();
+
+        var dt = tick - lastTick;
+        bullets.forEach(function(bullet) {
+
+            bullet.y += 5;  
+            bullet.x += dt*bullet.vx/1000;
+            bullet.y += dt*bullet.vy/1000;
+            bullet.life -= dt/1000/1.0;
+
+        });
+
+        bullets = bullets.filter(function(bullet) {
+            return 0 < bullet.life;
+        });
+        lastTick = tick;
 
     }
 
@@ -766,10 +918,6 @@ function Boss(canvas){
     this.getPos = function(id)
     {
         return {x:x[id], y:y[id]};
-    }
-
-    function barrier(x1, y1){
-
     }
 
     this.onBarrier = function(){
