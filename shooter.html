@@ -772,6 +772,7 @@ function Boss(canvas){
                 var dx = tx - bullet.x;
                 var dy = ty - bullet.y;
                 if (dx*dx + dy*dy < (br + r)*(br + r)) {
+                    bullet.inUse = false;
                     return true;
                 }
             }
@@ -782,6 +783,7 @@ function Boss(canvas){
                 var dx = tx - bullet.x;
                 var dy = ty - bullet.y;
                 if (dx*dx + dy*dy < (br + r)*(br + r)) {
+                    bullet.inUse = false;
                     return true;
                 }
             }
@@ -793,6 +795,7 @@ function Boss(canvas){
                 var dx = tx - bullet.x;
                 var dy = ty - bullet.y;
                 if (dx*dx + dy*dy < (br + r)*(br + r)) {
+                    bullet.inUse = false;
                     return true;
                 }
             }
@@ -1691,8 +1694,10 @@ window.onload = function() {
                         myY += (vy / length)*10;
                         playSE(explosionAudio);
                     }
+                    else if(matchlessMode && boss.bulletsHit(i, myX, myY, barrierRadius)){
+
+                    }
                     else if(boss.bulletsHit(i, myX, myY, 2) && !matchlessMode){
-                        console.log("111");
                         --mylife;
                     }
 
@@ -1961,8 +1966,11 @@ window.onload = function() {
             ctx.fillText(msg, canvas.width/2, canvas.height/2);
             if(msg == 'GAME CLEAR!!!')
             {
-                msg = "Press the Select to the Next Round"
-                ctx.fillText(msg, canvas.width/2, canvas.height/2 + 50)
+                if(gameRound >= 6){
+                    msg = "Press the Select to the Next Round"
+                    ctx.fillText(msg, canvas.width/2, canvas.height/2 + 50)
+                }
+
             }
         }
 
